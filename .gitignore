@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+target/
+dbt_packages/
+logs/
+
+# Instructor answer keys — kept out of the public repo to protect assessment integrity.
+INSTRUCTOR_NOTES.md

@@ -1,0 +1,8 @@
+pandas>=2.0
+numpy>=1.24
+snowflake-connector-python[pandas]>=3.6
+
+# Optional — only if you take the distance/ETA enrichment stretch goal.
+# Either call OpenRouteService / OSRM over HTTP (requests), or compute a
+# haversine fallback with numpy alone (no extra dependency needed).
+# requests>=2.31

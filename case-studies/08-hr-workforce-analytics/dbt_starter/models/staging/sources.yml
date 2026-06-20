@@ -1,0 +1,54 @@
+version: 2
+
+# Source definitions for the Northwind Atlas raw HR sandbox.
+# The generator loads these four tables into PEOPLECORE.RAW.
+# Point `database`/`schema` at wherever you ran the generator.
+#
+# Source freshness is wired as a starting point — tune the thresholds to a
+# daily-load SLA and wire them into your orchestration design.
+
+sources:
+  - name: raw
+    database: PEOPLECORE   # override per your sandbox
+    schema: RAW
+    description: "Raw HRIS feeds, as emitted by the people systems. Dirty on purpose."
+    tables:
+      - name: raw_employees
+        description: "One row per EMPLOYMENT RECORD (not per person). Transfers and rehires open new records under the same PERSON_ID."
+        loaded_at_field: hire_date
+        freshness:
+          warn_after: {count: 36, period: hour}
+          error_after: {count: 48, period: hour}
+        columns:
+          - name: employee_id
+            description: "Unique per employment record."
+            # Fellow: is this actually unique + not null? And is it the right
+            # grain for 'an employee'? Add tests and find out.
+          - name: person_id
+            description: "Stable per human; repeats across a person's records."
+
+      - name: raw_departments
+        description: "Reference dimension. One row per department; rolls up to division + cost center."
+        columns:
+          - name: department_id
+            description: "Unique department identifier."
+
+      - name: raw_performance_reviews
+        description: "One row per review. Some REVIEW_DATEs are null; some submissions are duplicated."
+        loaded_at_field: review_date   # note: nullable — consider what freshness means here
+        freshness:
+          warn_after: {count: 30, period: day}
+          error_after: {count: 45, period: day}
+        columns:
+          - name: review_id
+            description: "Unique per review submission."
+
+      - name: raw_payroll
+        description: "One row per employee per monthly pay period. Multi-currency, partial periods, occasional duplicate runs."
+        loaded_at_field: paid_at
+        freshness:
+          warn_after: {count: 36, period: hour}
+          error_after: {count: 48, period: hour}
+        columns:
+          - name: payroll_id
+            description: "Unique per payroll line."

@@ -1,0 +1,16 @@
+# Copy to ~/.dbt/profiles.yml (or merge in). Uses env vars so no secrets in git.
+# These are the SAME vars the data generator reads, so one setup covers both.
+
+haulpoint:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'SYSADMIN') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'HAULPOINT') }}"
+      schema: dev          # your dev working schema; sources read from RAW
+      threads: 4

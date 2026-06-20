@@ -1,0 +1,43 @@
+version: 2
+
+# Source definitions for the Lumen & Loom raw sandbox.
+# The generator loads these four tables into LUMEN_LOOM.RAW.
+# Point `database`/`schema` at wherever you ran the generator.
+#
+# Source freshness is wired as a starting point — tune the thresholds to a
+# daily-load SLA and wire them into your orchestration design.
+
+sources:
+  - name: raw
+    database: LUMEN_LOOM   # override per your sandbox
+    schema: RAW
+    description: "Raw operational feeds, as emitted by the source systems. Dirty on purpose."
+    tables:
+      - name: raw_orders
+        description: "One row per order. Status reflects current lifecycle state."
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: {count: 36, period: hour}
+          error_after: {count: 48, period: hour}
+        columns:
+          - name: order_id
+            description: "Unique order identifier."
+            # Fellow: is this actually unique + not null? Add tests and find out.
+
+      - name: raw_payments
+        description: "One row per payment ATTEMPT (includes failures and retries)."
+        loaded_at_field: attempted_at
+        freshness:
+          warn_after: {count: 36, period: hour}
+          error_after: {count: 48, period: hour}
+        columns:
+          - name: payment_id
+            description: "Unique per attempt."
+
+      - name: raw_refunds
+        description: "One row per refund. Can be partial; often a later month than the order."
+        loaded_at_field: processed_at
+
+      - name: raw_shipping
+        description: "One row per shipment. Timestamps go missing on carrier API timeouts."
+        loaded_at_field: shipped_at   # note: nullable — consider what freshness means here
