@@ -5,6 +5,7 @@ __pycache__/
 target/
 dbt_packages/
 logs/
+forme.txt
 
 # Instructor answer keys — kept out of the public repo to protect assessment integrity.
 INSTRUCTOR_NOTES.md
