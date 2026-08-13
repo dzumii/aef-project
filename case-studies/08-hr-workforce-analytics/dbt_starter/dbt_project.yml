@@ -20,9 +20,7 @@ models:
   peoplecore:
     staging:
       +materialized: view
-      +schema: staging
     intermediate:
-      +materialized: ephemeral
+      +materialized: view
     marts:
       +materialized: table
-      +schema: marts

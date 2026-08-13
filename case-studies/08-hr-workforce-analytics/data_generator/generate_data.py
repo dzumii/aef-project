@@ -442,7 +442,7 @@ def load_to_snowflake(conn, tables):
         cur.execute(DDL[name])
         # Snowflake stores NULLs from NaT/None correctly via write_pandas/Parquet.
         success, _, nrows, _ = write_pandas(
-            conn, df, name, quote_identifiers=False, auto_create_table=False
+            conn, df, name, quote_identifiers=False, auto_create_table=False, use_logical_type=True
         )
         if not success:
             sys.exit(f"Load failed for {name}")

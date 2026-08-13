@@ -1,0 +1,56 @@
+version: 2
+
+sources:
+  - name: raw
+    database: NORTHWIND_ATLAS
+    schema: RAW
+    freshness:
+      warn_after: {count: 24, period: hour}
+      error_after: {count: 48, period: hour}
+    loaded_at_field: "current_timestamp()" 
+    tables:
+      - name: raw_employees
+        description: "One row per employment record (not per person). New record created on transfer or rehire."
+        columns:
+          - name: employee_id
+            tests:
+              - not_null
+              - unique
+          - name: person_id
+            tests:
+              - not_null
+          - name: department_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'raw_departments')
+                  field: department_id
+          - name: employment_status
+            tests:
+              - accepted_values:
+                    arguments:
+                      values: ['active', 'terminated', 'transferred']
+
+      - name: raw_departments
+        description: "Reference table. One row per department with division and cost center."
+        columns:
+          - name: department_id
+            tests:
+              - not_null
+              - unique
+
+      - name: raw_performance_reviews
+        description: "One row per review submission. May contain duplicates per employee-period."
+        columns:
+          - name: review_id
+            tests:
+              - not_null
+              - unique
+
+      - name: raw_payroll
+        description: "One row per monthly pay run. Cancelled/reissued runs create duplicates per employee-period."
+        columns:
+          - name: payroll_id
+            tests:
+              - not_null
+              - unique

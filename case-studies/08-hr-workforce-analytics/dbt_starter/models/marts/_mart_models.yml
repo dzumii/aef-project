@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: dim_department
+    description: "Department dimension with active headcount, division, and cost center."
+    columns:
+      - name: department_id
+        tests:
+          - not_null
+          - unique
+
+  - name: fct_workforce
+    description: >
+      Person-grain workforce fact table. One row per human who has ever been employed.
+      Contains current assignment, three tenure definitions, latest pay, and performance.
+    columns:
+      - name: person_id
+        tests:
+          - not_null
+          - unique
+      - name: is_currently_active
+        tests:
+          - not_null
+
+  - name: fct_attrition_monthly
+    description: >
+      Monthly time series with headcount, hires, exits, and trailing-12-month attrition rate.
+    columns:
+      - name: month_start
+        tests:
+          - not_null
+          - unique
+
+  - name: rpt_reconciliation_bridge
+    description: >
+      Explains the attrition spread between Finance (record-based) and Talent (person-based).
+      Walks the bridge line by line: transfers removed, rehire exits added back.
