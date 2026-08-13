@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: mart_drivers
+    description: >
+      Driver performance mart. One row per driver (deduped).
+      Incentive totals reconcile to raw ledger — no silent restatement.
+    columns:
+      - name: driver_id
+        tests:
+          - not_null:
+              severity: error
+          - unique:
+              severity: error
+
+  - name: mart_riders
+    description: >
+      Rider activity mart. One row per rider with four concurrent active-rider
+      definitions so each stakeholder reads their own count from the same table.
+    columns:
+      - name: rider_id
+        tests:
+          - not_null
+          - unique
+      - name: lifecycle_stage
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['active', 'lapsing', 'churned', 'never_rode']
+
+  - name: mart_marketplace_kpis
+    description: >
+      Monthly marketplace KPIs: GMV, net revenue, take rate, cancellation rate,
+      fraud rate, incentive spend. All amounts in USD.
+    columns:
+      - name: report_month
+        tests:
+          - not_null
+          - unique
+
+  - name: mart_reconciliation
+    description: >
+      Single-row GMV-to-net-revenue bridge. Explains the 8-12% gap by line item:
+      fraud reversals, uncollected fares, and processor fees.

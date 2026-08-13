@@ -18,9 +18,23 @@ models:
   rideflow:
     staging:
       +materialized: view
-      +schema: staging
     intermediate:
-      +materialized: ephemeral
+      +materialized: view
     marts:
       +materialized: table
-      +schema: marts
+
+tests:
+  cobalt_mobility_dbt:
+    +severity: error  # default
+    staging:
+      assert_no_future_trips:
+        +severity: warn
+    intermediate:
+      assert_captured_lte_gross_fare:
+        +severity: warn
+    marts:
+      assert_gap_rate_within_bounds:
+        +severity: warn
+      assert_kpi_months_complete:
+        +severity: warn
+

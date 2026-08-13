@@ -1,0 +1,54 @@
+version: 2
+
+sources:
+  - name: raw
+    database: COBALT_MOBILITY
+    schema: RAW
+    description: "Raw operational feeds from the ride-hailing marketplace."
+    freshness:
+      warn_after: {count: 24, period: hour}
+      error_after: {count: 48, period: hour}
+    tables:
+      - name: raw_riders
+        description: "One row per rider account. account_status is CRM flag, not activity."
+        loaded_at_field: "SIGNUP_AT"
+        columns:
+          - name: rider_id
+            tests:
+              - not_null
+              - unique
+
+      - name: raw_drivers
+        description: "One row per driver, but re-onboarded drivers have duplicate driver_ids."
+        loaded_at_field: "ONBOARDED_AT"
+        columns:
+          - name: driver_id
+            tests:
+              - not_null
+
+      - name: raw_trips
+        description: "One row per trip request. gross_fare is fare at request time. Fraud flag is retroactive."
+        loaded_at_field: "REQUESTED_AT"
+        columns:
+          - name: trip_id
+            tests:
+              - not_null
+              - unique
+
+      - name: raw_payments
+        description: "One row per capture attempt. Retries and webhook double-logs create multi-row trips."
+        loaded_at_field: "ATTEMPTED_AT"
+        columns:
+          - name: payment_id
+            tests:
+              - not_null
+              - unique
+
+      - name: raw_driver_incentives
+        description: "One row per incentive line. A trip can have multiple campaign lines."
+        loaded_at_field: "EARNED_AT"
+        columns:
+          - name: incentive_id
+            tests:
+              - not_null
+              - unique

@@ -1,0 +1,51 @@
+version: 2
+
+models:
+  - name: stg_riders
+    description: "Staged riders. One row per rider_id. No dedup needed — source is clean."
+    columns:
+      - name: rider_id
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_drivers
+    description: "Staged drivers. Deduplicated to one row per driver_id (latest onboarding wins). Preserves re-onboarding flag."
+    columns:
+      - name: driver_id
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_trips
+    description: "Staged trips. One row per trip_id. Adds trip_classification and revenue eligibility flags per Assumption 6."
+    columns:
+      - name: trip_id
+        tests:
+          - not_null
+          - unique
+      - name: trip_classification
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['completed', 'completed_fraud', 'cancelled_no_match', 'cancelled_billed']
+
+  - name: stg_payments
+    description: "Staged payments. Deduplicated to ONE captured payment per trip (earliest capture wins). Failed attempts excluded."
+    columns:
+      - name: trip_id
+        tests:
+          - not_null
+          - unique
+      - name: payment_id
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_driver_incentives
+    description: "Staged incentives. All lines preserved (multi-campaign is intentional). Flags overlap for reporting."
+    columns:
+      - name: incentive_id
+        tests:
+          - not_null
+          - unique
