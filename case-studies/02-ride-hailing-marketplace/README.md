@@ -163,15 +163,26 @@ cobalt_mobility_dbt/
 ### Prerequisites
 
 - Python 3.9+
-- A Snowflake account with the raw data loaded into `<YOUR_DB>.RAW`
-- A development schema for dbt to write to
+- A Snowflake account with permission to create and load data into a project database
+- The project is designed to run against a fixed, shared setup, not custom-edited dbt config files
+
+### Reproduction contract
+
+This project is intended to be reproduced using the exact database and schema names already defined in the project:
+
+- Database: `COBALT_MOBILITY`
+- Raw source schema: `RAW`
+- dbt profile name: `rideflow`
+- dbt development schema: `DEV_JUMOKE` (or another schema you create consistently and keep in the same profile)
+
+Do not edit the project `profiles.yml` or the source YAML files to rename the database or schema. The intended workflow is to create the matching Snowflake objects and keep the dbt configuration as shipped.
 
 ### Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/<your-username>/cobalt-mobility-analytics.git
-cd cobalt-mobility-analytics
+git clone https://github.com/dzumii/aef-project.git
+cd case-studies/02-ride-hailing-marketplace/data_generator
 
 # Create and activate virtual environment
 python -m venv .venv
@@ -179,28 +190,23 @@ source .venv/bin/activate  # Linux/Mac
 # .venv\Scripts\activate   # Windows
 
 # Install dependencies
+pip install -r requirements.txt
 pip install dbt-snowflake==1.12.0
 ```
 
-### Configure Snowflake connection
+### Create the matching Snowflake objects
 
-Create or update `~/.dbt/profiles.yml`:
+Create the database and raw schema exactly as expected by the project:
 
-```yaml
-cobalt_mobility_dbt:
-  target: dev
-  outputs:
-    dev:
-      type: snowflake
-      account: <your-account>
-      user: <your-username>
-      authenticator: externalbrowser
-      role: <your-role>
-      warehouse: <your-warehouse>
-      database: <your-database>
-      schema: <your-dev-schema>
-      threads: 4
+```sql
+CREATE DATABASE IF NOT EXISTS COBALT_MOBILITY;
+CREATE SCHEMA IF NOT EXISTS COBALT_MOBILITY.RAW;
+CREATE SCHEMA IF NOT EXISTS COBALT_MOBILITY.DEV_JUMOKE;
 ```
+
+Load the generated source data into `COBALT_MOBILITY.RAW` using the raw table names referenced in the project sources.
+
+Then keep the project profile configuration unchanged and point your local `.dbt/profiles.yml` to the same Snowflake account and credentials. The profile in the project already expects the default names used above.
 
 ### Verify connection
 
@@ -260,40 +266,41 @@ dbt docs serve
 
 ### Validate the reconciliation
 
-After `dbt run`, verify the GMV-to-net bridge in Snowflake:
+This project ships with a ready-to-run validation script in the docs folder:
+
+- [case-studies/02-ride-hailing-marketplace/dbt_starter/docs/cobalt_mobility.sql](case-studies/02-ride-hailing-marketplace/dbt_starter/docs/cobalt_mobility.sql)
+
+Run that script in Snowflake after `dbt run` to confirm the raw tables, staged models, intermediate models, and final marts all align with the fixed project database/schema convention.
+
+The script includes the canonical checks for the GMV-to-net bridge and driver-level reconciliation, including:
 
 ```sql
-SELECT * FROM <your-schema>.MART_RECONCILIATION;
-```
-
-Expected output: single row showing GMV, net revenue, gap rate ~10.1%, with fraud/uncollected/fees breakdown.
-
-### Validate driver incentive reconciliation
-
-```sql
--- Should return 0 rows (perfect match to raw ledger)
+SELECT * FROM COBALT_MOBILITY.DEV_JUMOKE.MART_RECONCILIATION;
 SELECT d.driver_id, d.total_incentive_paid, r.raw_total
-FROM <your-schema>.MART_DRIVERS d
+FROM COBALT_MOBILITY.DEV_JUMOKE.MART_DRIVERS d
 JOIN (
   SELECT driver_id, SUM(bonus_amount) AS raw_total
-  FROM <your-database>.RAW.RAW_DRIVER_INCENTIVES
+  FROM COBALT_MOBILITY.RAW.RAW_DRIVER_INCENTIVES
   GROUP BY driver_id
 ) r ON d.driver_id = r.driver_id
 WHERE ABS(d.total_incentive_paid - r.raw_total) > 0.01;
-```
-
-### Validate active rider definitions
-
-```sql
 SELECT
   COUNT(CASE WHEN is_active_account THEN 1 END) AS crm_active,
   COUNT(CASE WHEN is_active_30d THEN 1 END) AS active_30d,
   COUNT(CASE WHEN is_active_90d THEN 1 END) AS active_90d,
   COUNT(CASE WHEN is_active_any_trip_30d THEN 1 END) AS any_trip_30d
-FROM <your-schema>.MART_RIDERS;
+FROM COBALT_MOBILITY.DEV_JUMOKE.MART_RIDERS;
 ```
 
-Expected: 10–15% variance between definitions.
+Expected: single-row reconciliation output and a 10–15% variance between the rider activity definitions.
+
+### Validate driver incentive reconciliation
+
+The driver incentive validation is already included in the docs script at [case-studies/02-ride-hailing-marketplace/dbt_starter/docs/cobalt_mobility.sql](case-studies/02-ride-hailing-marketplace/dbt_starter/docs/cobalt_mobility.sql).
+
+### Validate active rider definitions
+
+The rider-definition checks are also included in the same SQL doc at [case-studies/02-ride-hailing-marketplace/dbt_starter/docs/cobalt_mobility.sql](case-studies/02-ride-hailing-marketplace/dbt_starter/docs/cobalt_mobility.sql).
 
 ## DAG / Orchestration Design
 
@@ -308,6 +315,4 @@ source_freshness → run_staging → test_staging → run_intermediate
 - WARN-severity test failure = logged, pipeline continues
 - Full re-run is idempotent (same input = same output)
 
-## License
 
-This project was built as part of an analytics engineering engagement for Cobalt Mobility.

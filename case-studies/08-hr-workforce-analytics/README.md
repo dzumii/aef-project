@@ -175,15 +175,26 @@ northwind_workforce/
 ### Prerequisites
 
 - Python 3.9+
-- A Snowflake account with the raw data loaded into `NORTHWIND_ATLAS.RAW`
-- A development schema for dbt to write to
+- A Snowflake account with permission to create and load data into a project database
+- The project is designed to run against a fixed, shared setup, not custom-edited dbt config files
+
+### Reproduction contract
+
+This project is intended to be reproduced using the exact database and schema names already defined in the project:
+
+- Database: `NORTHWIND_ATLAS`
+- Raw source schema: `RAW`
+- dbt profile name: `peoplecore`
+- dbt development schema: `DEV_JUMOKE` (or another schema you create consistently and keep in the same profile)
+
+Do not edit the project `profiles.yml` or the source YAML files to rename the database or schema. The intended workflow is to create the matching Snowflake objects and keep the dbt configuration as shipped.
 
 ### Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/<your-username>/northwind-workforce-analytics.git
-cd northwind-workforce-analytics
+git clone https://github.com/dzumii/aef-project.git
+cd case-studies/08-hr-workforce-analytics/data_generator
 
 # Create and activate virtual environment
 python -m venv .venv
@@ -191,28 +202,23 @@ source .venv/bin/activate  # Linux/Mac
 # .venv\Scripts\activate   # Windows
 
 # Install dependencies
+pip install -r requirements.txt
 pip install dbt-snowflake==1.12.0
 ```
 
-### Configure Snowflake connection
+### Create the matching Snowflake objects
 
-Create or update `~/.dbt/profiles.yml`:
+Create the database and raw schema exactly as expected by the project:
 
-```yaml
-northwind_workforce:
-  target: dev
-  outputs:
-    dev:
-      type: snowflake
-      account: <your-account>
-      user: <your-username>
-      authenticator: externalbrowser
-      role: <your-role>
-      warehouse: <your-warehouse>
-      database: NORTHWIND_ATLAS
-      schema: <your-dev-schema>
-      threads: 4
+```sql
+CREATE DATABASE IF NOT EXISTS NORTHWIND_ATLAS;
+CREATE SCHEMA IF NOT EXISTS NORTHWIND_ATLAS.RAW;
+CREATE SCHEMA IF NOT EXISTS NORTHWIND_ATLAS.DEV_JUMOKE;
 ```
+
+Load the generated source data into `NORTHWIND_ATLAS.RAW` using the raw table names referenced in the project sources.
+
+Then keep the project profile configuration unchanged and point your local `.dbt/profiles.yml` to the same Snowflake account and credentials. The profile in the project already expects the default names used above.
 
 ### Build the full pipeline
 
@@ -250,27 +256,29 @@ dbt test --select marts
 
 ### Validate the reconciliation
 
-After `dbt run`, verify the bridge in Snowflake:
+This project ships with a ready-to-run validation script in the docs folder:
+
+- [case-studies/08-hr-workforce-analytics/dbt_starter/docs/northwind_atlas.sql](case-studies/08-hr-workforce-analytics/dbt_starter/docs/northwind_atlas.sql)
+
+Run that script in Snowflake after `dbt run` to confirm the raw tables, staged models, intermediate models, and final marts all align with the fixed project database/schema convention.
+
+The script includes the core verification queries, including:
 
 ```sql
 SELECT * FROM NORTHWIND_ATLAS.DEV_JUMOKE.RPT_RECONCILIATION_BRIDGE;
+SELECT
+    (SELECT SUM(active_headcount) FROM NORTHWIND_ATLAS.DEV_JUMOKE.DIM_DEPARTMENT) AS dept_sum,
+    (SELECT COUNT(*) FROM NORTHWIND_ATLAS.DEV_JUMOKE.FCT_WORKFORCE WHERE is_currently_active = 1) AS person_count;
+SELECT * FROM NORTHWIND_ATLAS.DEV_JUMOKE.WORKFORCE_KPIS;
 ```
 
 ### Validate headcount ties out
 
-```sql
--- Department headcount must equal total active persons
-SELECT
-    (SELECT SUM(active_headcount) FROM NORTHWIND_ATLAS.DEV_JUMOKE.DIM_DEPARTMENT) AS dept_sum,
-    (SELECT COUNT(*) FROM NORTHWIND_ATLAS.DEV_JUMOKE.FCT_WORKFORCE WHERE is_currently_active = 1) AS person_count;
--- Both should be 9,254
-```
+The validation script already contains the headcount checks; use it as the canonical verification for this project.
 
 ### Validate KPIs
 
-```sql
-SELECT * FROM NORTHWIND_ATLAS.DEV_JUMOKE.WORKFORCE_KPIS;
-```
+The KPI validation is also included in the SQL doc at [case-studies/08-hr-workforce-analytics/dbt_starter/docs/northwind_atlas.sql](case-studies/08-hr-workforce-analytics/dbt_starter/docs/northwind_atlas.sql).
 
 ## DAG / Orchestration Design
 
@@ -285,8 +293,5 @@ source_freshness → run_staging → test_staging → run_intermediate
 - HIGH test failure = marts refresh with warning flag
 - Full re-run is idempotent (same input = same output)
 
-See [`dag_design.md`](docs/dag_design.md) for the full DAG diagram and failure handling matrix.
 
-## License
 
-This project was built as part of an analytics engineering engagement for Northwind Atlas.
